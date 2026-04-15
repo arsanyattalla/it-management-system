@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { redirect, useRouter } from "next/navigation"
 import Link from "next/link"
 import { register } from "@/lib/actions/auth"
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Monitor, Loader2 } from "lucide-react"
-
+import { navigate } from "next/dist/client/components/segment-cache/navigation"
 export default function RegisterPage() {
   const router = useRouter()
   const [error, setError] = useState("")
@@ -38,13 +38,14 @@ export default function RegisterPage() {
       setError(result.error)
       setLoading(false)
     } else {
-      router.push("/dashboard")
+      console.log(result, "result")
+      redirect("/dashboard")
       router.refresh()
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex max-h-screen items-center justify-center bg-background px-10">
       <Card className="w-full max-w-md border-border">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
@@ -54,7 +55,7 @@ export default function RegisterPage() {
             Create Account
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            Set up your admin account for IT Management
+            Set up admin account
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -116,15 +117,7 @@ export default function RegisterPage() {
                 "Create Account"
               )}
             </Button>
-            <p className="text-sm text-muted-foreground">
-              Already have an account?{" "}
-              <Link
-                href="/login"
-                className="font-medium text-primary hover:underline"
-              >
-                Sign in
-              </Link>
-            </p>
+           
           </CardFooter>
         </form>
       </Card>

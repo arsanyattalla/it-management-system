@@ -1,16 +1,26 @@
-import { notFound } from "next/navigation"
-import Link from "next/link"
-import { getAsset } from "@/lib/actions/assets"
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import {
+  ProgramsCard,
+  type Program,
+} from "@/components/programs-card";
+import {
+  addProgramToAsset,
+  removeProgramFromAsset,
+  getAssetWithPrograms,
+} from "@/lib/actions/program";
+
+import { getAsset } from "@/lib/actions/assets";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
   Table,
   TableBody,
@@ -18,37 +28,50 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 import {
   ArrowLeft,
   HardDrive,
-  User,
   Calendar,
   Hash,
   Tag,
   FileText,
-} from "lucide-react"
+  MapPin,
+  Pencil,
+  Building,
+} from "lucide-react";
+import { AssetAssignmentCard } from "@/components/asset-assignment-card";
+import { DeleteAssetButton } from "@/components/ui/DeleteAssetButton";
 
 const statusColors: Record<string, string> = {
   available: "border-success/30 bg-success/10 text-success",
   assigned: "border-primary/30 bg-primary/10 text-primary",
   maintenance: "border-warning/30 bg-warning/10 text-warning",
   retired: "border-destructive/30 bg-destructive/10 text-destructive",
-}
+  GeneralUse: "border-primary/30 bg-primary/10 text-primary",
+};
+
 
 export default async function AssetDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: { id: string };
 }) {
-  const { id } = await params
-  const result = await getAsset(id)
+  const { id } = await params;
+
+  const result = await getAsset(id);
 
   if ("error" in result) {
-    notFound()
+    notFound();
   }
 
-  const { asset } = result
+  const { asset } = result;
+
+  const programsResult = await getAssetWithPrograms(asset._id.toString());
+  const programs =
+    "programs" in programsResult && Array.isArray(programsResult.programs)
+      ? (programsResult.programs as Program[])
+      : [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -74,20 +97,30 @@ export default async function AssetDetailPage({
         </Badge>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Asset Details Card */}
-        <Card className="border-border">
-          <CardHeader>
+      {/* Main grid */}
+      <div className="grid gap-6 md:grid-cols-2 items-start">
+        <Card className="border-border h-full">
+          <CardHeader className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <HardDrive className="h-4 w-4 text-muted-foreground" />
               <CardTitle className="text-base font-semibold text-foreground">
                 Asset Information
               </CardTitle>
             </div>
-            <CardDescription>General details about this asset</CardDescription>
+            <div className="flex items-center gap-2">
+              <Button asChild variant="default">
+                <Link href={`/dashboard/assets/${id}/edit`}>
+                  <Pencil className="h-4 w-4" />
+                  <span className="sr-only">Edit asset</span>
+                </Link>
+              </Button>
+
+              <DeleteAssetButton assetId={asset._id.toString()} />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-4">
+
+          <CardContent className="flex flex-col gap-6">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex items-center gap-3">
                 <Tag className="h-4 w-4 text-muted-foreground" />
                 <div>
@@ -97,7 +130,7 @@ export default async function AssetDetailPage({
                   </p>
                 </div>
               </div>
-              <Separator />
+
               <div className="flex items-center gap-3">
                 <HardDrive className="h-4 w-4 text-muted-foreground" />
                 <div>
@@ -107,7 +140,17 @@ export default async function AssetDetailPage({
                   </p>
                 </div>
               </div>
-              <Separator />
+
+              <div className="flex items-center gap-3">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Location</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {asset.location || "-"}
+                  </p>
+                </div>
+              </div>
+
               <div className="flex items-center gap-3">
                 <Hash className="h-4 w-4 text-muted-foreground" />
                 <div>
@@ -117,7 +160,7 @@ export default async function AssetDetailPage({
                   </p>
                 </div>
               </div>
-              <Separator />
+
               <div className="flex items-center gap-3">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <div>
@@ -127,79 +170,54 @@ export default async function AssetDetailPage({
                   </p>
                 </div>
               </div>
-              {asset.notes && (
-                <>
-                  <Separator />
-                  <div className="flex items-start gap-3">
-                    <FileText className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Notes</p>
-                      <p className="text-sm text-foreground">{asset.notes}</p>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Assignment Info Card */}
-        <Card className="border-border">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base font-semibold text-foreground">
-                Assignment
-              </CardTitle>
-            </div>
-            <CardDescription>
-              Current user assignment for this asset
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {asset.assignedTo ? (
-              <div className="flex items-center gap-4 rounded-lg border border-border p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                  <User className="h-5 w-5 text-primary" />
-                </div>
+              <div className="flex items-center gap-3">
+                <Building className="h-4 w-4 text-muted-foreground" />
                 <div>
+                  <p className="text-xs text-muted-foreground">Department</p>
                   <p className="text-sm font-medium text-foreground">
-                    {asset.assignedToName || "Unknown User"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Currently assigned to this user
+                    {asset.department || "-"}
                   </p>
                 </div>
               </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-8 text-center">
-                <User className="h-8 w-8 text-muted-foreground/50" />
-                <p className="text-sm text-muted-foreground">
-                  This asset is not currently assigned to anyone
-                </p>
-              </div>
+            </div>
+
+            {/* Notes */}
+            {asset.notes && (
+              <>
+                <Separator />
+                <div className="flex items-start gap-3">
+                  <FileText className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Notes</p>
+                    <p className="text-sm text-foreground">{asset.notes}</p>
+                  </div>
+                </div>
+              </>
             )}
 
-            <div className="mt-6">
-              <p className="text-xs text-muted-foreground">
-                Created:{" "}
-                {new Date(asset.createdAt).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Last updated:{" "}
-                {new Date(asset.updatedAt).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </p>
+            <Separator />
+            <div>
+
+              <ProgramsCard
+                assetId={asset._id.toString()}
+                programs={programs}
+                onAddProgram={addProgramToAsset}
+                onRemoveProgram={removeProgramFromAsset}
+              />
             </div>
           </CardContent>
         </Card>
+
+        {/* Assignment Card on the right */}
+        <AssetAssignmentCard
+          assetId={asset._id}
+          assetName={asset.name}
+          assignedTo={asset.assignedTo}
+          assignedToName={asset.assignedToName}
+          createdAt={asset.createdAt}
+          updatedAt={asset.updatedAt}
+        />
       </div>
 
       {/* Custom Properties */}
@@ -227,16 +245,21 @@ export default async function AssetDetailPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {asset.customProperties.map((prop, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium text-foreground">
-                        {prop.key}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {prop.value}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {asset.customProperties.map(
+                    (
+                      prop: { key: string; value: string | number },
+                      index: number,
+                    ) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium text-foreground">
+                          {prop.key}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {prop.value}
+                        </TableCell>
+                      </TableRow>
+                    ),
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -244,5 +267,5 @@ export default async function AssetDetailPage({
         </Card>
       )}
     </div>
-  )
+  );
 }

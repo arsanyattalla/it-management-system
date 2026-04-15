@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { usePathname, useRouter } from "next/navigation"
-import { logout } from "@/lib/actions/auth"
+import { usePathname, useRouter } from "next/navigation";
+import { logout } from "@/lib/actions/auth";
 import {
   Sidebar,
   SidebarContent,
@@ -13,13 +13,13 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 import {
   Monitor,
   LayoutDashboard,
@@ -28,8 +28,13 @@ import {
   LogOut,
   ChevronUp,
   ShieldCheck,
-} from "lucide-react"
-
+  ListCheck,
+  UserPlus,
+  ServerIcon,
+} from "lucide-react";
+import { getTaskCount } from "@/lib/actions/tasks";
+import { useEffect, useState } from "react";
+import { FolderOpen } from "lucide-react";
 const navItems = [
   {
     title: "Dashboard",
@@ -46,25 +51,57 @@ const navItems = [
     url: "/dashboard/assets",
     icon: HardDrive,
   },
-]
+  {
+    title: "Servers",
+    url: "/dashboard/servers",
+    icon: ServerIcon,
+  },
+  {
+    title: "Tasks",
+    url: "/dashboard/tasks",
+    icon: ListCheck,
+  },
+  {
+  title: "Documents",
+  url: "/dashboard/files",
+  icon: FolderOpen,
+}
+];
 
 interface AppSidebarProps {
-  adminName: string
-  adminEmail: string
+  adminName: string;
+  adminEmail: string;
 }
 
 export function AppSidebar({ adminName, adminEmail }: AppSidebarProps) {
-  const pathname = usePathname()
-  const router = useRouter()
+  const pathname = usePathname();
+  const router = useRouter();
+  const [taskCount, setTaskCount] = useState(0);
+const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function fetchTaskCount() {
+      const count = await getTaskCount();
+      setTaskCount(count);
+    }
+
+    fetchTaskCount();
+  }, []);
 
   async function handleLogout() {
-    await logout()
-    router.push("/login")
-    router.refresh()
+    await logout();
+    router.push("/login");
+    router.refresh();
   }
 
   return (
-    <Sidebar>
+    <>
+      {loading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
+          <div className="flex h-8 w-8 animate-spin items-center justify-center rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      )}
+      <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border px-4 py-4">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary">
@@ -72,10 +109,9 @@ export function AppSidebar({ adminName, adminEmail }: AppSidebarProps) {
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-semibold text-sidebar-foreground">
-              Draeger's IT Management
+              IT Management
             </span>
-            <span className="text-xs text-sidebar-foreground/60">
-            </span>
+            <span className="text-xs text-sidebar-foreground/60"></span>
           </div>
         </div>
       </SidebarHeader>
@@ -89,22 +125,44 @@ export function AppSidebar({ adminName, adminEmail }: AppSidebarProps) {
               {navItems.map((item) => {
                 const isActive =
                   pathname === item.url ||
-                  (item.url !== "/dashboard" &&
-                    pathname.startsWith(item.url))
+                  (item.url !== "/dashboard" && pathname.startsWith(item.url));
+
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.title}
-                    >
-                      <a href={item.url}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </a>
-                    </SidebarMenuButton>
+                      {item.title === "Tasks" ? (
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={item.title}
+                      >
+                        {/* intentionally left blank: removed side-effect from render */}
+                        <a href={item.url} className="flex items-center gap-2">
+                          <ListCheck className="h-4 w-4" />
+
+                          <span className="relative flex items-center">
+                            {item.title}
+                            {taskCount > 0 && isActive==false && (
+                              <span className="ml-2 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] w-4 h-4">
+                                {taskCount}
+                              </span>
+                            )}
+                          </span>
+                        </a>
+                      </SidebarMenuButton>
+                    ) : (
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={item.title}
+                      >
+                        <a href={item.url}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </a>
+                      </SidebarMenuButton>
+                    )}
                   </SidebarMenuItem>
-                )
+                );
               })}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -138,11 +196,20 @@ export function AppSidebar({ adminName, adminEmail }: AppSidebarProps) {
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign out
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => router.push("/dashboard/register")}
+                  className="text-primary focus:text-primary"
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Register an Admin
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
-  )
+    </>
+  );
 }
+

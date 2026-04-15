@@ -4,15 +4,18 @@ import { getDb } from "@/lib/mongodb"
 import { getCurrentAdmin } from "@/lib/auth"
 import { ObjectId } from "mongodb"
 import { z } from "zod"
+import { Asset } from "next/dist/compiled/@next/font/dist/google"
 
 const userSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Invalid email address"),
-  department: z.string().min(1, "Department is required"),
+  department: z.string().optional().default(""),
   position: z.string().optional().default(""),
   phone: z.string().optional().default(""),
   status: z.enum(["active", "inactive"]).default("active"),
+  location: z.string().optional().default(""),
+  employeeId: z.string().optional().default(""),
 })
 
 export type User = {
@@ -21,10 +24,13 @@ export type User = {
   lastName: string
   email: string
   department: string
+  location: string
   position: string
   phone: string
+  employeeId?: string
   status: "active" | "inactive"
   assignedAssetsCount?: number
+  assignedAssets?: { _id: string; name: string }[]
   createdAt: string
   updatedAt: string
 }
@@ -33,6 +39,7 @@ export async function getUsers(params?: {
   search?: string
   department?: string
   status?: string
+  location?: string
 }) {
   const admin = await getCurrentAdmin()
   if (!admin) return { error: "Unauthorized" }
@@ -55,32 +62,42 @@ export async function getUsers(params?: {
   if (params?.status && params.status !== "all") {
     filter.status = params.status
   }
+  if (params?.location && params.location !== "all") {
+    filter.location = params.location
+  }
 
   const users = await db
     .collection("users")
     .find(filter)
-    .sort({ createdAt: -1 })
+    .sort({firstName: 1})
     .toArray()
 
-  // Get assigned assets count for each user
-  const usersWithCounts = await Promise.all(
+ const usersWithAssets = await Promise.all(
     users.map(async (user) => {
-      const count = await db
+      const assets = await db
         .collection("assets")
-        .countDocuments({ assignedTo: user._id.toString() })
+        .find({ assignedTo: user._id.toString() })
+        .project({ name: 1 }) 
+        .toArray()
+
+      const assignedAssets = assets.map((asset) => ({
+        _id: asset._id.toString(),
+        name: asset.name as string,
+      }))
+
       return {
         ...user,
         _id: user._id.toString(),
-        assignedAssetsCount: count,
+        assignedAssetsCount: assignedAssets.length,
+        assignedAssets,
         createdAt: user.createdAt?.toISOString?.() || new Date().toISOString(),
         updatedAt: user.updatedAt?.toISOString?.() || new Date().toISOString(),
       }
     })
   )
 
-  return { users: usersWithCounts as User[] }
+  return { users: usersWithAssets as User[] }
 }
-
 export async function getDepartments() {
   const admin = await getCurrentAdmin()
   if (!admin) return { error: "Unauthorized" }
@@ -88,6 +105,14 @@ export async function getDepartments() {
   const db = await getDb()
   const departments = await db.collection("users").distinct("department")
   return { departments: departments.filter(Boolean) as string[] }
+}
+export async function getLocation() {
+  const admin = await getCurrentAdmin()
+  if (!admin) return { error: "Unauthorized" }
+
+  const db = await getDb()
+  const locations = await db.collection("users").distinct("location")
+  return { locations: locations.filter(Boolean) as string[] }
 }
 
 export async function createUser(formData: z.infer<typeof userSchema>) {
@@ -154,13 +179,49 @@ export async function updateUser(
   }
 }
 
+export async function getUser(id: string) {
+  const admin = await getCurrentAdmin();
+  if (!admin) return { error: "Unauthorized" };
+
+  const db = await getDb();
+  const user = await db
+    .collection("users")
+    .findOne({ _id: new ObjectId(id) });
+
+  if (!user) return { error: "User not found" };
+
+  
+  const assets = await db
+    .collection("assets")
+    .find({ assignedTo: user._id.toString() }) 
+    .project({ name: 1 }) 
+    .toArray();
+
+  const assignedAssets = assets.map((asset) => ({
+    _id: asset._id.toString(),
+    name: asset.name as string,
+  }));
+
+  return {
+    user: {
+      ...user,
+      _id: user._id.toString(),
+      createdAt: user.createdAt?.toISOString?.() || new Date().toISOString(),
+      updatedAt: user.updatedAt?.toISOString?.() || new Date().toISOString(),
+      assignedAssetsCount: assignedAssets.length,
+      assignedAssets,
+    },
+  };
+}
+
+
+
 export async function deleteUser(id: string) {
   const admin = await getCurrentAdmin()
   if (!admin) return { error: "Unauthorized" }
 
   const db = await getDb()
 
-  // Unassign any assets assigned to this user
   await db
     .collection("assets")
     .updateMany(

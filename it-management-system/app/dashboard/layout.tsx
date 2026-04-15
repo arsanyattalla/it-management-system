@@ -22,7 +22,7 @@ export default async function DashboardLayout({
           <SidebarTrigger className="-ml-1 text-muted-foreground" />
           <Separator orientation="vertical" className="mx-3 h-5" />
           <span className="text-sm font-medium text-muted-foreground">
-            Draeger's IT Management System
+            IT Management System
           </span>
         </header>
         <main className="flex-1 overflow-auto bg-background p-6">

@@ -1,43 +1,78 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Loader2, Plus, X } from "lucide-react"
-import type { Asset } from "@/lib/actions/assets"
+} from "@/components/ui/select";
+import { Loader2, Plus, X } from "lucide-react";
+
+import type { Asset } from "@/lib/actions/assets";
+import { AssignAssetDialog } from "@/components/assign-asset-dialog";
+import { de } from "date-fns/locale";
+import { toast } from "sonner";
 
 interface AssetFormProps {
-  asset?: Asset | null
+  asset?: Asset | null;
   onSubmit: (data: {
-    name: string
+    name: string;
     type:
       | "Desktop"
       | "Laptop"
       | "Monitor"
-      | "Keyboard"
       | "Phone"
       | "Printer"
-      | "Other"
-    brand: string
-    model: string
-    serialNumber: string
-    status: "available" | "assigned" | "maintenance" | "retired"
-    purchaseDate: string
-    notes: string
-    customProperties: { key: string; value: string }[]
-  }) => Promise<void>
-  onCancel: () => void
-  loading?: boolean
+      | "Tablet"
+      | "Server"
+      | "Other";
+    brand: string;
+    location: "MP" | "LA" | "SSF" | "Home/Remote" | "Fog City Foods" ;
+    model: string;
+    serialNumber: string;
+    status: "available" | "assigned" | "maintenance" | "retired" | "GeneralUse";
+    purchaseDate: string;
+    notes: string;
+    customProperties: { key: string; value: string }[];
+    assignedTo: string | null;
+    department: Department | "";
+  }) => Promise<void>;
+  onCancel?: () => void;
+  loading?: boolean;
 }
+
+const departments = [
+  "Meat",
+  "Produce",
+  "Floral",
+  "Bakery",
+  "Managers",
+  "Grocery",
+  "Loss Prevention",
+  "HR",
+  "Accounting",
+  "IT",
+  "Payroll",
+  "Owners",
+  "Houseware",
+  "Deli",
+  "wine",
+  "Gift Baskets",
+  "Fog City Foods",
+ 
+
+] as const;
+
+type Department = (typeof departments)[number];
+const locations = ["MP", "LA", "SSF", "Home/Remote","Fog City Foods" ] as const;
 
 const assetTypes = [
   "Desktop",
@@ -46,239 +81,359 @@ const assetTypes = [
   "Keyboard",
   "Phone",
   "Printer",
+  "Tablet",
+  "Server",
   "Other",
-] as const
+] as const;
 
-export function AssetForm({ asset, onSubmit, onCancel, loading }: AssetFormProps) {
-  const [error, setError] = useState("")
+export function AssetForm({
+  asset,
+  onSubmit,
+  onCancel,
+  loading,
+}: AssetFormProps) {
+  const [error, setError] = useState("");
   const [customProperties, setCustomProperties] = useState<
     { key: string; value: string }[]
-  >(asset?.customProperties || [])
+  >(asset?.customProperties || []);
+
+  const [status, setStatus] = useState<
+    "available" | "assigned" | "maintenance" | "retired" | "GeneralUse"
+  >(asset?.status || "available");
+
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+
+  const [assignedUserId, setAssignedUserId] = useState<string | null>(
+    (asset as any)?.assignedTo ?? null,
+  );
+
+  const router = useRouter();
 
   function addProperty() {
-    setCustomProperties([...customProperties, { key: "", value: "" }])
+    setCustomProperties((prev) => [...prev, { key: "", value: "" }]);
   }
 
   function removeProperty(index: number) {
-    setCustomProperties(customProperties.filter((_, i) => i !== index))
+    setCustomProperties((prev) => prev.filter((_, i) => i !== index));
   }
 
   function updateProperty(
     index: number,
     field: "key" | "value",
-    value: string
+    value: string,
   ) {
-    const updated = [...customProperties]
-    updated[index][field] = value
-    setCustomProperties(updated)
+    setCustomProperties((prev) => {
+      const updated = [...prev];
+      updated[index][field] = value;
+      return updated;
+    });
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError("")
-    const formData = new FormData(e.currentTarget)
+    e.preventDefault();
+    setError("");
+
+    const formData = new FormData(e.currentTarget);
+    console.log("submitting status", status);
 
     try {
+      setTimeout(() => {
+      }, 5000);
       await onSubmit({
         name: formData.get("name") as string,
-        type: formData.get("type") as AssetFormProps["onSubmit"] extends (
-          data: infer D
-        ) => unknown
-          ? D extends { type: infer T }
-            ? T
-            : never
-          : never,
+        type: (formData.get("type") as any) || "Laptop",
         brand: (formData.get("brand") as string) || "",
         model: (formData.get("model") as string) || "",
         serialNumber: (formData.get("serialNumber") as string) || "",
-        status:
-          (formData.get("status") as
-            | "available"
-            | "assigned"
-            | "maintenance"
-            | "retired") || "available",
+        status,
         purchaseDate: (formData.get("purchaseDate") as string) || "",
+        location:
+          (formData.get("location") as "MP" | "LA" | "SSF" | "Home/Remote" | "Fog City Foods" ) || "MP",
         notes: (formData.get("notes") as string) || "",
         customProperties: customProperties.filter((p) => p.key.trim()),
-      })
+        assignedTo: status === "assigned" ? assignedUserId : null,
+        department:
+          (formData.get("department") as string) === "none"
+            ? ""
+            : (formData.get("department") as Department),
+      });
+      toast.success(asset ? `${asset.name} updated` : "Asset created", {
+              description: "",
+
+      });
+      
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      setError(err instanceof Error ? err.message : "Something went wrong");
+      
+      return;
     }
   }
 
+  async function handleAssignUser(userId: string): Promise<void> {
+    setAssignedUserId(userId);
+    console.log("Selected user for assignment:", userId);
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {error && (
-        <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
+    <>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {error && (
+          <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
 
-      <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="name">Asset Name</Label>
+            <Input
+              id="name"
+              name="name"
+              defaultValue={asset?.name || ""}
+              required
+              placeholder="MacBook Pro 16"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="type">Type</Label>
+            <Select name="type" defaultValue={asset?.type || "Laptop"}>
+              <SelectTrigger id="type">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                {assetTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="brand">Brand</Label>
+            <Input
+              id="brand"
+              name="brand"
+              defaultValue={asset?.brand || ""}
+              placeholder="Apple"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="model">Model</Label>
+            <Input
+              id="model"
+              name="model"
+              defaultValue={asset?.model || ""}
+              placeholder="A2141"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="serialNumber">Serial Number</Label>
+            <Input
+              id="serialNumber"
+              name="serialNumber"
+              defaultValue={asset?.serialNumber || ""}
+              placeholder="SN-12345-ABCDE"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="location">Location</Label>
+            <Select name="location" defaultValue={asset?.location || undefined}>
+              <SelectTrigger id="location">
+                <SelectValue placeholder="Select location" />
+              </SelectTrigger>
+              <SelectContent>
+                {locations.map((location) => (
+                  <SelectItem key={location} value={location}>
+                    {location}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Status + open dialog when "assigned" */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="status">Status</Label>
+            <Select
+              name="status"
+              value={status}
+              onValueChange={(value) => {
+                const v = value as
+                  | "available"
+                  | "assigned"
+                  | "maintenance"
+                  | "retired"
+                  | "GeneralUse";
+                setStatus(v);
+                if (v === "assigned") {
+                  setAssignDialogOpen(true);
+                } else {
+                  setAssignedUserId(null);
+                }
+              }}
+            >
+              <SelectTrigger id="status">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="available">Available</SelectItem>
+                <SelectItem value="assigned">Assigned</SelectItem>
+                <SelectItem value="maintenance">Maintenance</SelectItem>
+                <SelectItem value="retired">Retired</SelectItem>
+                <SelectItem value="GeneralUse">General Use</SelectItem>
+              </SelectContent>
+            </Select>
+            {status === "assigned" && (
+              <p className="text-xs text-muted-foreground">
+                {assignedUserId
+                  ? "A user has been selected for assignment."
+                  : "Please select a user to assign this asset to."}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="department">Department</Label>
+            <Select
+              name="department"
+              defaultValue={(asset as any)?.department || ""}
+            >
+              <SelectTrigger id="department">
+                <SelectValue placeholder="Select department" />
+              </SelectTrigger>
+              <SelectContent>
+                {/* Explicit 'no department' option */}
+                <SelectItem value="none">No Department</SelectItem>
+                {departments.map((dept) => (
+                  <SelectItem key={dept} value={dept}>
+                    {dept}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         <div className="flex flex-col gap-2">
-          <Label htmlFor="name">Asset Name</Label>
+          <Label htmlFor="purchaseDate">Purchase Date</Label>
           <Input
-            id="name"
-            name="name"
-            defaultValue={asset?.name || ""}
-            required
-            placeholder="MacBook Pro 16"
+            id="purchaseDate"
+            name="purchaseDate"
+            type="date"
+            defaultValue={asset?.purchaseDate || ""}
           />
         </div>
+
         <div className="flex flex-col gap-2">
-          <Label htmlFor="type">Type</Label>
-          <Select name="type" defaultValue={asset?.type || "Laptop"}>
-            <SelectTrigger id="type">
-              <SelectValue placeholder="Select type" />
-            </SelectTrigger>
-            <SelectContent>
-              {assetTypes.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {type}
-                </SelectItem>
+          <Label htmlFor="notes">Notes</Label>
+          <Textarea
+            id="notes"
+            name="notes"
+            defaultValue={asset?.notes || ""}
+            placeholder="Additional notes about this asset..."
+            rows={2}
+          />
+        </div>
+
+        {/* Custom Properties */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">Custom Properties</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addProperty}
+              className="cursor-pointer"
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              Add Property
+            </Button>
+          </div>
+          {customProperties.length > 0 && (
+            <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
+              {customProperties.map((prop, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Input
+                    placeholder="Key (e.g. RAM)"
+                    value={prop.key}
+                    onChange={(e) =>
+                      updateProperty(index, "key", e.target.value)
+                    }
+                    className="flex-1"
+                  />
+                  <Input
+                    placeholder="Value (e.g. 16GB)"
+                    value={prop.value}
+                    onChange={(e) =>
+                      updateProperty(index, "value", e.target.value)
+                    }
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeProperty(index)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               ))}
-            </SelectContent>
-          </Select>
+            </div>
+          )}
         </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="brand">Brand</Label>
-          <Input
-            id="brand"
-            name="brand"
-            defaultValue={asset?.brand || ""}
-            placeholder="Apple"
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="model">Model</Label>
-          <Input
-            id="model"
-            name="model"
-            defaultValue={asset?.model || ""}
-            placeholder="A2141"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="serialNumber">Serial Number</Label>
-          <Input
-            id="serialNumber"
-            name="serialNumber"
-            defaultValue={asset?.serialNumber || ""}
-            placeholder="SN-12345-ABCDE"
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="status">Status</Label>
-          <Select
-            name="status"
-            defaultValue={asset?.status || "available"}
-          >
-            <SelectTrigger id="status">
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="available">Available</SelectItem>
-              <SelectItem value="assigned">Assigned</SelectItem>
-              <SelectItem value="maintenance">Maintenance</SelectItem>
-              <SelectItem value="retired">Retired</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="purchaseDate">Purchase Date</Label>
-        <Input
-          id="purchaseDate"
-          name="purchaseDate"
-          type="date"
-          defaultValue={asset?.purchaseDate || ""}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="notes">Notes</Label>
-        <Textarea
-          id="notes"
-          name="notes"
-          defaultValue={asset?.notes || ""}
-          placeholder="Additional notes about this asset..."
-          rows={2}
-        />
-      </div>
-
-      {/* Custom Properties */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">Custom Properties</Label>
+        <div className="flex justify-end gap-3 pt-2">
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            onClick={addProperty}
+            className="cursor-pointer"
+            onClick={() => {
+              if (onCancel) onCancel();
+              else router.back();
+            }}
           >
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            Add Property
+            Cancel
+          </Button>
+          <Button className="cursor-pointer" type="submit" disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : asset ? (
+              "Update Asset"
+            ) : (
+              "Add Asset"
+            )}
           </Button>
         </div>
-        {customProperties.length > 0 && (
-          <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
-            {customProperties.map((prop, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <Input
-                  placeholder="Key (e.g. RAM)"
-                  value={prop.key}
-                  onChange={(e) =>
-                    updateProperty(index, "key", e.target.value)
-                  }
-                  className="flex-1"
-                />
-                <Input
-                  placeholder="Value (e.g. 16GB)"
-                  value={prop.value}
-                  onChange={(e) =>
-                    updateProperty(index, "value", e.target.value)
-                  }
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
-                  onClick={() => removeProperty(index)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      </form>
 
-      <div className="flex justify-end gap-3 pt-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={loading}>
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Saving...
-            </>
-          ) : asset ? (
-            "Update Asset"
-          ) : (
-            "Add Asset"
-          )}
-        </Button>
-      </div>
-    </form>
-  )
+      {/* Dialog only picks user; real assignment happens on submit */}
+      {status === "assigned" && (
+        <AssignAssetDialog
+          open={assignDialogOpen}
+          onOpenChange={setAssignDialogOpen}
+          assetName={asset?.name || "This asset"}
+          onAssign={async (userId: string) => {
+            await handleAssignUser(userId);
+          }}
+        />
+      )}
+    </>
+  );
 }
