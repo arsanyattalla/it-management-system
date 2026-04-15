@@ -1,46 +1,46 @@
 # it-management-system
 
 
-📌 Overview
+Overview
 
 The IT Management System is a web-based application designed to streamline and centralize IT operations. It allows administrators and support teams to manage users, devices, tasks, and system activities efficiently in one place.
 
-🚀 Features
-👤 User Management
+Features
+User Management
 Create, update, and delete users
 Role-based access control (Admin, User, Support)
 
-🖥️ Device Management
+Device Management
 Track devices (computers, servers, IoT devices)
 Monitor status and assignments
 
-📝 Ticketing System
+Ticketing System
 Create and manage support tickets
 Assign tickets to team members
 Track status (Open, In Progress, Resolved)
 
-📊 Dashboard
+Dashboard
 Real-time system overview
 Activity logs and analytics
 
-🔐 Authentication & Security
+Authentication & Security
 Secure login system
 Session management
 
-🛠️ Tech Stack
+Tech Stack
 Frontend: React / Next.js
 Backend: Node.js / Express
 Database: MongoDB
 Styling: Tailwind CSS
 
-📂 Project Structure
+Project Structure
 /client        # Frontend (React / Next.js)
 /server        # Backend (Node.js / Express)
 /models        # Database models
 /routes        # API routes
 /controllers   # Business logic
 
-⚙️ Installation & Setup
+Installation & Setup
 1. Clone the repository
 git clone https://github.com/arsanyattalla/it-management-system.git
 cd it-management-system
