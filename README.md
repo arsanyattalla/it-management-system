@@ -1,5 +1,4 @@
-# it-management-system
-
+# IT-Management-System
 
 Overview
 
